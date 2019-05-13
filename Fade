@@ -1,0 +1,350 @@
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace Struct.Core.Controls
+{
+    public class Fade : Form
+    {
+        #region private properties
+
+        /// <summary>
+        /// MasterControl that this
+        /// fade form is following
+        /// </summary>
+        private Control MasterControl;
+
+        /// <summary>
+        /// Not an active form flag
+        /// </summary>
+        private static int WS_EX_NOACTIVATE = 0x08000000;
+
+        #endregion
+
+        #region protected properties
+
+        /// <summary>
+        /// Change the Extended Styles to
+        /// not allow this form to be active.
+        /// </summary>
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= WS_EX_NOACTIVATE;
+                return cp;
+            }
+        }
+
+        #endregion
+
+        #region public properties
+
+        /// <summary>
+        /// Fade Types
+        /// </summary>
+        public enum FADE_TYPE
+        {
+            FadeIn,
+            FadeOut
+        }
+
+        /// <summary>
+        /// Handles the Compelted Event
+        /// </summary>
+        /// <param name="Type">FADE_TYPE</param>
+        public delegate void CompletedEventHandler(FADE_TYPE Type);
+
+        /// <summary>
+        /// Set the Fade Message
+        /// </summary>
+        public string Message
+        {
+            set
+            {
+                this.SetMessage(value);
+            }
+        }
+
+        /// <summary>
+        /// Fade form offset X
+        /// </summary>
+        public int OffsetX { get; set; }
+
+        /// <summary>
+        /// Fade form offset Y
+        /// </summary>
+        public int OffsetY { get; set; }
+
+        /// <summary>
+        /// Fade form offset W
+        /// </summary>
+        public int OffsetW { get; set; }
+
+        /// <summary>
+        /// Fade form offset H
+        /// </summary>
+        public int OffsetH { get; set; }
+
+        /// <summary>
+        /// Fires when a fade event
+        /// is completed.
+        /// </summary>
+        public event CompletedEventHandler Completed;
+
+        #endregion
+
+        public Fade(Control MasterControl)
+        {
+            this.SuspendLayout();
+            this.ClientSize = new System.Drawing.Size(634, 544);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+            this.Name = "Fade";
+            this.ShowIcon = false;
+            this.ShowInTaskbar = false;
+            this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
+            this.ResumeLayout(false);
+
+            this.MasterControl = MasterControl ?? throw new ArgumentNullException("MasterControl");
+        }
+
+        /// <summary>
+        /// Fade In over the Master Control
+        /// </summary>
+        /// <param name="StepIn">By How Much</param>
+        /// <param name="Speed">By How Fast</param>
+        public void In(double StepIn = 0.01, int Speed = 250)
+        {
+            System.Threading.Thread t = new System.Threading.Thread(
+            new System.Threading.ThreadStart(() =>
+            {
+                try
+                {
+                    this.Invoke(new MethodInvoker(() =>
+                    {
+                        if (StepIn == 1)
+                        {
+                            this.Opacity = 1;
+                            return;
+                        }
+
+                        double d = 0.00;
+
+                        while (this.Opacity < 1)
+                        {
+                            this.Opacity = (d += StepIn);
+                            System.Threading.Thread.Sleep(Speed);
+                        }
+                    }
+                    ));
+
+                    this.Completed?.Invoke(FADE_TYPE.FadeIn);
+                }
+                catch { }
+            }
+            ))
+            {
+                Priority = System.Threading.ThreadPriority.AboveNormal,
+                IsBackground = true
+            };
+            t.Start();
+        }
+
+        /// <summary>
+        /// Move the fade form when
+        /// the MasterControl moves
+        /// on the screen
+        /// </summary>
+        new public void Move()
+        {
+            try
+            {
+                if (this.Owner != null)
+                {
+                    this.Owner.SuspendLayout();
+
+                    Point p = this.Owner.PointToScreen(this.MasterControl.Location);
+
+                    this.Location = new Point(
+                        p.X + OffsetX,
+                        p.Y + OffsetY
+                    );
+
+                    CenterLabel();
+
+                    this.Owner.ResumeLayout();
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Fade out over the Master Control
+        /// </summary>
+        /// <param name="step">by how much</param>
+        /// <param name="speed">by how fast</param>
+        public void Out(double StepOut = 0.01, int Speed = 250)
+        {
+            System.Threading.Thread t = new System.Threading.Thread(
+                new System.Threading.ThreadStart(() =>
+                {
+                    System.Threading.Thread.Sleep(1000);
+
+                    this.Invoke(new MethodInvoker(() =>
+                    {
+                        try
+                        {
+                            if (StepOut == 1)
+                            {
+                                this.Opacity = 0;
+                                return;
+                            }
+
+                            double d = 0.00;
+                            while (this.Opacity > 0.00)
+                            {
+                                this.Opacity = (d -= StepOut);
+                                System.Threading.Thread.Sleep(Speed);
+                            }
+
+                            this.Message = "Please Wait...";
+
+                            this.Completed?.Invoke(FADE_TYPE.FadeOut);
+                        }
+                        catch { }
+                    }
+                    ));
+                }
+            ))
+            {
+                Priority = System.Threading.ThreadPriority.AboveNormal,
+                IsBackground = true
+            };
+            t.Start();
+        }
+
+        /// <summary>
+        /// Resize the Fade form to match
+        /// the MasterControl including
+        /// offsets.
+        /// </summary>
+        new public void Resize()
+        {
+            try
+            {
+                if (this.Owner != null)
+                {
+                    this.Owner.SuspendLayout();
+
+                    Size s = this.MasterControl.Size;
+
+                    this.Size = new Size(
+                        s.Width + OffsetW,
+                        s.Height + OffsetH
+                    );
+
+                    CenterLabel();
+
+                    this.Owner.ResumeLayout();
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Show the Fade Form
+        /// </summary>
+        /// <param name="owner"></param>
+        public void Show(Form Owner)
+        {
+            try
+            {
+                if (Owner != null)
+                {
+                    Owner.Move += (object sender, EventArgs e) => { this.Move(); };
+                    Owner.Resize += (object sender, EventArgs e) => { this.Resize(); };
+
+                    /* ***** ADD PICTURE AND TEXT TO FADE FORM *******
+                     * 1. Add a Resource file named 'Resources' to your project.
+                     * 2. Add a picture to your Resources file that's 66x44 and
+                     *    name it FadeImage.
+                     * 3. Add a picture box and name it pictureBox and set its
+                     *    size to 66 x 44.
+                     */
+                    //try
+                    //{
+                    //    ToolTip tt = new ToolTip();
+
+                    //    this.pictureBox.Size = new System.Drawing.Size(66, 44);
+                    //    this.pictureBox.Image = Struct.Core.Controls.Resources.FadeImage;
+                    //}
+                    //catch { }
+
+                    base.Show(Owner);
+                    this.Move();
+                    this.Resize();
+                }
+            }
+            catch { }
+        }
+
+        #region private methods
+
+        /// <summary>
+        /// Center the message label
+        /// and the spinner on the form.
+        /// </summary>
+        private void CenterLabel()
+        {
+            /***** INCLUDE A PICTURE AND TEXT ******
+             * 1. Add a lable to the Fade form and name it labelMessage.
+             * 2. Make sure the labelMessage.AutoSize is set to false.
+             * 3. Review the steps in the Show method to add the
+             *    required picture box.
+             * 3. Uncomment this code to provide the ability to set
+             *    a message while the form is fading in/out in the
+             *    center of the fade form.
+             */
+            //try
+            //{
+            //    this.labelMessage.Location = new Point(
+            //        (this.Width / 2) - (this.labelMessage.Width / 2),
+            //        (this.Height / 2) - (this.labelMessage.Height / 2)
+            //    );
+
+            //    this.pictureBox.Location = new Point(
+            //        (this.Width / 2) - (this.pictureBox.Width / 2),
+            //        (this.labelMessage.Bottom + 10)
+            //    );
+            //}
+            //catch { }
+        }
+
+        /// <summary>
+        /// Set the fade message
+        /// </summary>
+        /// <param name="Message">Message</param>
+        private void SetMessage(string Message)
+        {
+            try
+            {
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(new Action<string>(SetMessage), Message);
+                    return;
+                }
+
+                /* Uncomment this line once you've followed the steps
+                 * in the CenterLabel method
+                 */
+                //this.labelMessage.Text = Message;
+
+                this.CenterLabel();
+            }
+            catch { }
+        }
+
+        #endregion
+    }
+}
