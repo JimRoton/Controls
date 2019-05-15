@@ -12,7 +12,7 @@ namespace Struct.Core.Controls
         /// MasterControl that this
         /// fade form is following
         /// </summary>
-        private Control MasterControl;
+        private readonly Control MasterControl;
 
         /// <summary>
         /// Not an active form flag
@@ -250,6 +250,7 @@ namespace Struct.Core.Controls
                 }
             }
             catch { }
+
         }
 
         /// <summary>
